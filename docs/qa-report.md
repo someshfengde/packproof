@@ -12,7 +12,7 @@ Date: 2026-10-12. These checks were run against the local synthetic fixture; the
 - Confirmed counts drive deterministic reconciliation.
 - Unsupported MIME, mismatched image signatures, and duplicate SKUs are rejected before a model call.
 
-The script's 10-request local route timing sample reported median `/api/sample` 0.75 ms, blocked export 0.79 ms, and ready export 0.85 ms. These are local fixture/API timings only; they exclude image inference, network/cloud latency, and real receiving work. They are not an accuracy, productivity, or customer-impact claim.
+After the visual fixture correction, the script's 10-request local route timing sample reported median `/api/sample` 0.80 ms, blocked export 0.77 ms, and ready export 0.89 ms. These are local fixture/API timings only; they exclude image inference, network/cloud latency, and real receiving work. They are not an accuracy, productivity, or customer-impact claim.
 
 ## Production server check
 
@@ -30,8 +30,7 @@ Current captures are genuine browser screenshots from that app:
 - `artifacts/screenshots/02-sample-review.png`
 - `artifacts/screenshots/03-manual-counts-pending.png`
 - `artifacts/screenshots/04-all-lines-confirmed.png`
+- `artifacts/screenshots/05-exported-packet-card.png`
 - `artifacts/screenshots/05-exported-packet-full.png`
 
-Downloaded report files are `artifacts/demo/packproof-claim.json` and `artifacts/demo/packproof-claim.txt`. These are synthetic fixture exports.
-
-The current fixture image needs a visual consistency correction for the partially visible plate count and chipped mug. Do not use these captures as final slide/video evidence until the image and caption are aligned and captures are refreshed.
+Both report downloads succeeded in the browser workflow. Local synthetic outputs are `artifacts/demo/packproof-claim.json` and `artifacts/demo/packproof-claim.txt`; the source release excludes these generated copies. Final captures follow the corrected illustration and matching summary: 20 visible mugs with a chipped rim, a sealed bowl carton, and 12 visible plates in a partly open carton.
