@@ -6,6 +6,8 @@ PackProof is a receiving-desk prototype for small retail teams. It organizes a s
 
 [Watch the 66-second narrated demo on Google Drive](https://drive.google.com/file/d/1KPzIAlUIXnhyLrj-VjaEXBBAB4d1Fi5Q/view?usp=sharing) ([GitHub release download backup](https://github.com/someshfengde/packproof/releases/download/v0.1.0/PackProof-demo.mp4)). It walks through the fixed synthetic sample and explicitly does not call Gemini. Live Vertex AI mode requires project configuration and has not yet been exercised.
 
+The [submission PDF](https://github.com/someshfengde/packproof/releases/download/v0.1.0/PackProof-AI-Builder-Cup.pdf) and [editable PowerPoint](https://github.com/someshfengde/packproof/releases/download/v0.1.0/PackProof-AI-Builder-Cup.pptx) are attached to the same release.
+
 ## Run locally
 
 Requires Node.js 22.12 or newer.
