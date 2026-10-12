@@ -16,8 +16,8 @@ const validResponse = {
   })),
 };
 
-describe('Vertex AI image adapter', () => {
-  it('constructs a multimodal Vertex request with JSON output and validates returned line IDs', async () => {
+describe('Gemini image analysis adapter', () => {
+  it('constructs a multimodal request with JSON output and validates returned line IDs', async () => {
     const generateContent = vi.fn().mockResolvedValue({ text: JSON.stringify(validResponse) });
     const client = { models: { generateContent } } as unknown as VertexClient;
     const bytes = Buffer.from('fake-image');

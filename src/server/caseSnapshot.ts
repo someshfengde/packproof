@@ -7,15 +7,20 @@ export type CaseMetadata = {
   createdAt: string;
   imageName: string;
   imageSha256: string;
-  mode: 'demo_fixture' | 'live_vertex';
+  mode: 'demo_fixture' | 'live_vertex' | 'live_gemini_api';
   model: string | null;
   source: string;
 };
 
 export type CaseSnapshot = { metadata: CaseMetadata; items: PackingItem[]; analysis: Analysis };
 
+export function deriveCaseSigningSecret(apiKey: string): string {
+  if (!apiKey) throw new Error('GEMINI_API_KEY is required to derive a case signing key.');
+  return createHmac('sha256', apiKey).update('packproof/case-snapshot-signing:v1').digest('hex');
+}
+
 const snapshotSchema = z.object({
-  metadata: z.object({ caseId: z.string(), createdAt: z.string(), imageName: z.string(), imageSha256: z.string().length(64), mode: z.enum(['demo_fixture', 'live_vertex']), model: z.string().nullable(), source: z.string() }),
+  metadata: z.object({ caseId: z.string(), createdAt: z.string(), imageName: z.string(), imageSha256: z.string().length(64), mode: z.enum(['demo_fixture', 'live_vertex', 'live_gemini_api']), model: z.string().nullable(), source: z.string() }),
   items: packingItemsSchema,
   analysis: analysisSchema,
 });

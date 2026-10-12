@@ -13,9 +13,9 @@ type Observation = {
   itemId: string; observedQuantity: number | null; visibility: 'complete' | 'partial' | 'unknown';
   evidence: string; damage: string | null; confidence: number; uncertainty: string;
 };
-type ModeInfo = { mode: 'demo_fixture' | 'live_vertex'; ready: boolean; model: string | null; location: string | null };
+type ModeInfo = { mode: 'demo_fixture' | 'live_vertex' | 'live_gemini_api'; ready: boolean; model: string | null; location: string | null };
 type CaseData = {
-  caseId: string; createdAt: string; imageName: string; imageSha256: string; mode: 'demo_fixture' | 'live_vertex';
+  caseId: string; createdAt: string; imageName: string; imageSha256: string; mode: 'demo_fixture' | 'live_vertex' | 'live_gemini_api';
   model: string | null; source: string; imageSummary: string; observations: Observation[]; caseToken: string;
 };
 type Review = { quantity: string; confirmed: boolean; note: string };
@@ -46,6 +46,7 @@ function App() {
 
   const fixtureCase = caseData?.mode === 'demo_fixture';
   const isFixture = caseData ? fixtureCase : (mode?.mode ?? 'demo_fixture') === 'demo_fixture';
+  const providerLabel = mode?.mode === 'live_gemini_api' ? 'Gemini Developer API' : 'Vertex AI';
   const readyCount = caseData ? Object.values(reviews).filter((review) => review.confirmed && isWholeCount(review.quantity)).length : 0;
   const allReviewed = Boolean(caseData && readyCount === items.length && items.length > 0);
 
@@ -104,8 +105,8 @@ function App() {
 
   async function analyzeUpload() {
     if (!file) { setError('Choose a delivery image first.'); return; }
-    if (!mode?.ready || mode.mode !== 'live_vertex') {
-      setError('This app is in clearly labeled demo fixture mode. New uploads are not sent to Gemini. Configure live Vertex AI to analyze this photo, or load the illustrated sample case.');
+    if (!mode?.ready || !['live_vertex', 'live_gemini_api'].includes(mode.mode)) {
+      setError('This app is in clearly labeled demo fixture mode. New uploads are not sent to Gemini. Configure a live Gemini provider to analyze this photo, or load the illustrated sample case.');
       return;
     }
     if (!items.length || items.some((item) => !item.sku.trim() || !item.name.trim() || !Number.isInteger(item.expectedQuantity) || item.expectedQuantity < 0)) {
@@ -172,8 +173,8 @@ function App() {
 
         <section className="mode-banner" aria-live="polite">
           <div className={`mode-icon ${isFixture ? 'fixture' : 'live'}`}>{isFixture ? <ShieldCheck size={17}/> : <Cloud size={17}/>}</div>
-          <div className="mode-copy"><strong>{fixtureCase ? 'Fixed sample case' : isFixture ? 'Demo fixture mode' : 'Live Vertex AI mode'}</strong><span>{fixtureCase ? `This case uses fixed sample observations, not AI inference.${mode?.mode === 'live_vertex' ? ' New uploads can use Vertex AI.' : ''}` : isFixture ? 'The sample is a fixed example, not AI inference. New uploads stay on this device.' : `Gemini runs server-side${mode?.model ? ` · ${mode.model}` : ''}. Your image is not saved.`}</span></div>
-          <span className={`mode-pill ${isFixture ? 'pill-demo' : 'pill-live'}`}><i/>{fixtureCase ? 'FIXED SAMPLE' : isFixture ? 'DEMO FIXTURE' : mode?.ready ? 'VERTEX AI LIVE' : 'CONFIGURATION NEEDED'}</span>
+          <div className="mode-copy"><strong>{fixtureCase ? 'Fixed sample case' : isFixture ? 'Demo fixture mode' : `Live ${providerLabel} mode`}</strong><span>{fixtureCase ? `This case uses fixed sample observations, not AI inference.${mode?.mode !== 'demo_fixture' ? ` New uploads can use ${providerLabel}.` : ''}` : isFixture ? 'The sample is a fixed example, not AI inference. New uploads stay on this device.' : `Gemini runs server-side${mode?.model ? ` · ${mode.model}` : ''}. Your image is not saved.`}</span></div>
+          <span className={`mode-pill ${isFixture ? 'pill-demo' : 'pill-live'}`}><i/>{fixtureCase ? 'FIXED SAMPLE' : isFixture ? 'DEMO FIXTURE' : mode?.ready ? `${mode.mode === 'live_gemini_api' ? 'GEMINI API' : 'VERTEX AI'} LIVE` : 'CONFIGURATION NEEDED'}</span>
         </section>
 
         {error && <div className="error-banner" role="alert"><TriangleAlert size={18}/><span>{error}</span><button aria-label="Dismiss" onClick={() => setError('')}><X size={16}/></button></div>}
@@ -196,7 +197,7 @@ function App() {
               </label>
               <div className="privacy-note"><LockKeyhole size={14}/><span>Images are processed in memory and not stored.</span></div>
               <button className="button button-primary analyze-button" onClick={analyzeUpload} disabled={busy !== null || !file || !mode?.ready || items.length === 0}>{busy === 'analyze' ? <><LoaderCircle size={16} className="spin"/> Inspecting image…</> : <><Sparkles size={16}/> Analyze with Gemini <ArrowRight size={15}/></>}</button>
-              {mode?.mode === 'demo_fixture' && <div className="setup-mode-note">Demo mode can load the sample case. Configure Vertex AI to analyze new uploads.</div>}
+              {mode?.mode === 'demo_fixture' && <div className="setup-mode-note">Demo mode can load the sample case. Configure a live Gemini provider to analyze new uploads.</div>}
             </div>
           </div>}
 

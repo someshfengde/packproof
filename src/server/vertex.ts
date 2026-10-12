@@ -36,13 +36,13 @@ export async function analyzeImage(client: VertexClient, model: string, bytes: B
       },
     },
   });
-  if (!response.text) throw new Error('Vertex AI returned an empty response.');
+  if (!response.text) throw new Error('AI provider returned an empty response.');
   const result = analysisSchema.safeParse(JSON.parse(response.text));
-  if (!result.success) throw new Error('Vertex AI response did not match the required schema.');
+  if (!result.success) throw new Error('AI provider response did not match the required schema.');
   const requestedIds = new Set(items.map((item) => item.id));
   const returnedIds = new Set(result.data.observations.map((line) => line.itemId));
   if (returnedIds.size !== result.data.observations.length || returnedIds.size !== requestedIds.size || [...returnedIds].some((id) => !requestedIds.has(id))) {
-    throw new Error('Vertex AI response did not match the packing list lines.');
+    throw new Error('AI provider response did not match the packing list lines.');
   }
   return result.data;
 }

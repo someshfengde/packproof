@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { signCase, verifyCase } from '../src/server/caseSnapshot';
+import { deriveCaseSigningSecret, signCase, verifyCase } from '../src/server/caseSnapshot';
 import { sampleAnalysis, sampleItems } from '../src/server/fixtures';
 
 const snapshot = {
@@ -25,5 +25,16 @@ describe('signed case snapshots', () => {
     expect(verifyCase(`${tamperedPayload}.${signature}`, 'stable-key')).toBeNull();
     expect(verifyCase('not-a-token', 'stable-key')).toBeNull();
     expect(verifyCase(`${payload}.bad`, 'stable-key')).toBeNull();
+  });
+
+  it('derives a stable domain-separated signing key from the server Gemini key', () => {
+    const firstInstanceSecret = deriveCaseSigningSecret('server-gemini-key');
+    const secondInstanceSecret = deriveCaseSigningSecret('server-gemini-key');
+    const token = signCase(snapshot, firstInstanceSecret);
+
+    expect(secondInstanceSecret).toBe(firstInstanceSecret);
+    expect(verifyCase(token, secondInstanceSecret)).toEqual(snapshot);
+    expect(verifyCase(token, deriveCaseSigningSecret('rotated-gemini-key'))).toBeNull();
+    expect(firstInstanceSecret).not.toContain('server-gemini-key');
   });
 });

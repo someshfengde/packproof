@@ -1,6 +1,6 @@
 # PackProof
 
-PackProof is a receiving-desk prototype for small retail teams. It organizes a supplier packing list and delivery photo into a reviewable evidence packet. In live mode, Gemini on Vertex AI suggests what can be seen in the image; an operator checks the physical delivery, confirms every count, and chooses whether to export the report.
+PackProof is a receiving-desk prototype for small retail teams. It organizes a supplier packing list and delivery photo into a reviewable evidence packet. In live mode, Gemini suggests what can be seen in the image; an operator checks the physical delivery, confirms every count, and chooses whether to export the report.
 
 ## Demo
 
@@ -29,7 +29,9 @@ export GEMINI_MODEL_ID=gemini-3.5-flash
 npm run dev
 ```
 
-`@google/genai` uses Vertex AI mode on the server and reads ADC credentials. The browser receives no API key. Images are held in memory for the request and are not written to disk. In live mode the API request times out after 75 seconds and does not retry automatically.
+`@google/genai` runs only on the server. Vertex mode uses ADC; Gemini Developer API mode uses a server-side `GEMINI_API_KEY`. The browser receives no API key. Images are held in memory for the request and are not written to disk. In live mode the API request times out after 75 seconds and does not retry automatically.
+
+For a no-billing Gemini Developer API path, set `AI_MODE=live_gemini_api` and use `gemini-3.5-flash-lite` (or explicitly set `GEMINI_API_MODEL_ID`). Google's current pricing page lists free-tier input, including images, and output for that model; quotas and model availability can change. Free-tier prompts and responses may be used to improve Google products. Avoid uploading sensitive delivery photos. This is separate from Vertex AI mode and never falls back to sample output if configuration or a live request fails. When `GEMINI_API_KEY` is present and `AI_MODE` is not specified, the server selects this live mode explicitly; it does not silently substitute fixture results. In production, this mode can derive a stable case-signing key from the server-only API key if `CASE_SIGNING_SECRET` is unset. Rotating the API key invalidates open case tokens; setting an explicit stable `CASE_SIGNING_SECRET` avoids that coupling.
 
 ## How the review works
 
@@ -41,9 +43,9 @@ Every case carries a server-signed snapshot of its original packing list, image 
 
 ## API
 
-- `GET /api/mode` — configured mode, model/location, and whether required configuration is ready.
+- `GET /api/mode` — configured mode (`demo_fixture`, `live_vertex`, or `live_gemini_api`), model/location, and whether required configuration is ready.
 - `GET /api/sample` — fixed illustrated sample case and signed case snapshot. Works in fixture mode without GCP credentials when a signing secret is configured.
-- `POST /api/analyze` — multipart `image` plus `items` as a JSON string. Available only in live Vertex AI mode.
+- `POST /api/analyze` — multipart `image` plus `items` as a JSON string. Available only in a configured live mode. Analysis provenance identifies `vertex_ai` or `gemini_api`.
 - `POST /api/export` — `{ caseToken, confirmations }`, where each confirmation is `{ quantity, confirmed, note }`. Returns a blocked status until every original line has a confirmed count.
 - `GET /api/health` — process health check.
 
