@@ -1,0 +1,15 @@
+.git
+.deck-inspect
+.qa-tools
+artifacts
+node_modules
+dist
+coverage
+test
+docs
+*.pptx
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example

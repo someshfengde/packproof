@@ -1,0 +1,7 @@
+PackProof is a receiving desk assistant for small retailers. It organizes a supplier packing list and a delivery image into a report the receiver can check and correct.
+
+This walkthrough uses the fixed sample case shown in the banner. These observations are preset, the image is a generated illustration, and no model is called here. The open mug carton shows twenty mugs against twenty-four expected, including a visible chipped rim. The bowl carton is sealed, so its contents cannot be counted from this view. The partly open plate carton shows twelve plates; that visible stack is not the shipment total.
+
+The receiver enters what they verified physically. Export stays blocked until every line is reviewed and confirmed. PackProof then creates JSON and readable reports with expected, suggested, and confirmed quantities, image hash, source mode, and review details. It does not contact suppliers or make payment decisions.
+
+The app includes a Gemini on Vertex AI analysis path, but that path requires the project owner to configure Cloud Run, IAM, Vertex AI, and the signing secret, then verify a real request. This fixed sample demonstrates the review workflow only. It is not a live model run or evidence of extraction accuracy.
