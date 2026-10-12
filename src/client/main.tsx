@@ -8,18 +8,8 @@ import {
 import './styles.css';
 import { parseCsv } from './packingCsv';
 import type { Item } from './types';
-
-type Observation = {
-  itemId: string; observedQuantity: number | null; visibility: 'complete' | 'partial' | 'unknown';
-  evidence: string; damage: string | null; confidence: number; uncertainty: string;
-};
-type ModeInfo = { mode: 'demo_fixture' | 'live_vertex' | 'live_gemini_api'; ready: boolean; model: string | null; location: string | null };
-type CaseData = {
-  caseId: string; createdAt: string; imageName: string; imageSha256: string; mode: 'demo_fixture' | 'live_vertex' | 'live_gemini_api';
-  model: string | null; source: string; imageSummary: string; observations: Observation[]; caseToken: string;
-};
-type Review = { quantity: string; confirmed: boolean; note: string };
-type ExportResponse = { status: 'ready' | 'blocked'; unresolvedIds: string[]; reportJson?: Record<string, unknown>; reportText?: string; error?: string };
+import { analyzeCase, exportCase, getMode, loadSampleCase, loadSyntheticLiveImage, type CaseData, type ExportResponse, type ModeInfo, type Review } from './transport';
+import type { Observation } from '../shared/domain';
 
 const blankItems = (): Item[] => [
   { id: 'line-1', sku: '', name: '', expectedQuantity: 0 },
@@ -41,12 +31,12 @@ function App() {
   const [showCsv, setShowCsv] = useState(false);
 
   useEffect(() => {
-    fetch('/api/mode').then((response) => response.json()).then(setMode).catch(() => setMode({ mode: 'demo_fixture', ready: true, model: null, location: null }));
+    getMode().then(setMode).catch((caught) => setMode({ mode: 'demo_fixture', ready: false, model: null, location: null, error: errorMessage(caught) }));
   }, []);
 
   const fixtureCase = caseData?.mode === 'demo_fixture';
   const isFixture = caseData ? fixtureCase : (mode?.mode ?? 'demo_fixture') === 'demo_fixture';
-  const providerLabel = mode?.mode === 'live_gemini_api' ? 'Gemini Developer API' : 'Vertex AI';
+  const providerLabel = mode?.mode === 'live_gemini_api' ? 'Gemini Developer API' : mode?.mode === 'firebase_ai_logic' ? 'Firebase AI Logic' : 'Vertex AI';
   const readyCount = caseData ? Object.values(reviews).filter((review) => review.confirmed && isWholeCount(review.quantity)).length : 0;
   const allReviewed = Boolean(caseData && readyCount === items.length && items.length > 0);
 
@@ -78,14 +68,19 @@ function App() {
   async function loadSample() {
     setError(''); setReport(null); setBusy('sample');
     try {
-      const response = await fetch('/api/sample');
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? 'The sample case could not be loaded.');
-      const loadedItems: Item[] = data.items;
-      const loadedCase: CaseData = data;
+      const loadedCase = await loadSampleCase();
+      const loadedItems: Item[] = loadedCase.items ?? items;
       setItems(loadedItems); setCaseData(loadedCase); setFile(null); setReviews({});
     } catch (caught) { setError(errorMessage(caught)); }
     finally { setBusy(null); }
+  }
+
+  async function prepareSyntheticLiveImage() {
+    setError(''); setReport(null);
+    try {
+      const synthetic = await loadSyntheticLiveImage();
+      setItems(synthetic.items); setFile(synthetic.file); setCaseData(null); setReviews({});
+    } catch (caught) { setError(errorMessage(caught)); }
   }
 
   function loadFile(nextFile?: File) {
@@ -105,8 +100,8 @@ function App() {
 
   async function analyzeUpload() {
     if (!file) { setError('Choose a delivery image first.'); return; }
-    if (!mode?.ready || !['live_vertex', 'live_gemini_api'].includes(mode.mode)) {
-      setError('This app is in clearly labeled demo fixture mode. New uploads are not sent to Gemini. Configure a live Gemini provider to analyze this photo, or load the illustrated sample case.');
+    if (!mode?.ready || !['live_vertex', 'live_gemini_api', 'firebase_ai_logic'].includes(mode.mode)) {
+      setError(mode?.error ?? (mode?.mode === 'firebase_ai_logic' ? 'Firebase AI Logic and App Check are not ready. Complete the Firebase setup before analyzing this photo.' : 'This app is in clearly labeled demo fixture mode. New uploads are not sent to Gemini. Configure a live Gemini provider to analyze this photo, or load the illustrated sample case.'));
       return;
     }
     if (!items.length || items.some((item) => !item.sku.trim() || !item.name.trim() || !Number.isInteger(item.expectedQuantity) || item.expectedQuantity < 0)) {
@@ -117,11 +112,7 @@ function App() {
     if (new Set(items.map((item) => item.id)).size !== items.length) { setError('Packing line IDs must be unique.'); return; }
     setBusy('analyze'); setError(''); setReport(null);
     try {
-      const form = new FormData();
-      form.set('image', file); form.set('items', JSON.stringify(items));
-      const response = await fetch('/api/analyze', { method: 'POST', body: form });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? 'Analysis failed.');
+      const data = await analyzeCase(file, items);
       setCaseData(data); setReviews({});
     } catch (caught) { setError(errorMessage(caught)); }
     finally { setBusy(null); }
@@ -138,17 +129,9 @@ function App() {
   async function exportPacket() {
     if (!caseData || !allReviewed) return;
     setBusy('export'); setError('');
-    const confirmations = Object.fromEntries(items.map((item) => {
-      const review = reviews[item.id];
-      return [item.id, { quantity: Number(review.quantity), confirmed: review.confirmed, note: review.note }];
-    }));
     try {
-      const response = await fetch('/api/export', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caseToken: caseData.caseToken, confirmations }),
-      });
-      const data: ExportResponse = await response.json();
-      if (!response.ok) throw new Error(data.error ?? 'The claim packet could not be generated.');
+      const data: ExportResponse = await exportCase(caseData, items, reviews);
+      if (data.status === 'blocked') throw new Error(data.error ?? 'Confirm every line before exporting.');
       setReport(data);
     } catch (caught) { setError(errorMessage(caught)); }
     finally { setBusy(null); }
@@ -161,7 +144,7 @@ function App() {
       <header className="topbar">
         <a className="brand" href="#top" aria-label="PackProof home"><span className="brand-mark"><PackageCheck size={20} strokeWidth={2.2} /></span><span>packproof</span><span className="brand-divider"/><span className="brand-sub">RECEIVING DESK</span></a>
         <nav className="top-links"><a className="current" href="#case">Workspace</a><a href="#guide">How it works</a></nav>
-        <div className="top-right"><span className="workspace-label"><span className="workspace-dot"/> LOCAL WORKSPACE</span><button className="avatar" aria-label="Somesh">S</button></div>
+        <div className="top-right"><span className="workspace-label"><span className="workspace-dot"/> BROWSER SESSION</span><button className="avatar" aria-label="Somesh">S</button></div>
       </header>
 
       <main id="top" className="page-wrap">
@@ -173,8 +156,8 @@ function App() {
 
         <section className="mode-banner" aria-live="polite">
           <div className={`mode-icon ${isFixture ? 'fixture' : 'live'}`}>{isFixture ? <ShieldCheck size={17}/> : <Cloud size={17}/>}</div>
-          <div className="mode-copy"><strong>{fixtureCase ? 'Fixed sample case' : isFixture ? 'Demo fixture mode' : `Live ${providerLabel} mode`}</strong><span>{fixtureCase ? `This case uses fixed sample observations, not AI inference.${mode?.mode !== 'demo_fixture' ? ` New uploads can use ${providerLabel}.` : ''}` : isFixture ? 'The sample is a fixed example, not AI inference. New uploads stay on this device.' : `Gemini runs server-side${mode?.model ? ` · ${mode.model}` : ''}. Your image is not saved.`}</span></div>
-          <span className={`mode-pill ${isFixture ? 'pill-demo' : 'pill-live'}`}><i/>{fixtureCase ? 'FIXED SAMPLE' : isFixture ? 'DEMO FIXTURE' : mode?.ready ? `${mode.mode === 'live_gemini_api' ? 'GEMINI API' : 'VERTEX AI'} LIVE` : 'CONFIGURATION NEEDED'}</span>
+          <div className="mode-copy"><strong>{mode?.error ? 'Service connection unavailable' : fixtureCase ? 'Fixed sample case' : isFixture ? 'Demo fixture mode' : !mode?.ready ? 'Configuration needed' : `Live ${providerLabel} mode`}</strong><span>{mode?.error ? mode.error : fixtureCase ? `This case uses fixed sample observations, not AI inference.${mode?.mode !== 'demo_fixture' ? ` New uploads can use ${providerLabel}.` : ''}` : isFixture ? 'The sample is a fixed example, not AI inference. New uploads stay on this device.' : mode?.mode === 'firebase_ai_logic' ? mode.ready ? `Gemini runs through Firebase AI Logic${mode.model ? ` · ${mode.model}` : ''}. The image is sent for this request and not stored by PackProof. Use synthetic, non-sensitive demo photos; free Gemini inputs may be used by Google to improve products.` : 'Firebase AI Logic and App Check are not configured. Live photo analysis is disabled.' : `Gemini runs server-side${mode?.model ? ` · ${mode.model}` : ''}. Your image is not saved.`}</span></div>
+          <span className={`mode-pill ${isFixture ? 'pill-demo' : 'pill-live'}`}><i/>{fixtureCase ? 'FIXED SAMPLE' : isFixture ? 'DEMO FIXTURE' : mode?.ready ? mode.mode === 'firebase_ai_logic' ? 'FIREBASE AI LIVE' : `${mode.mode === 'live_gemini_api' ? 'GEMINI API' : 'VERTEX AI'} LIVE` : 'CONFIGURATION NEEDED'}</span>
         </section>
 
         {error && <div className="error-banner" role="alert"><TriangleAlert size={18}/><span>{error}</span><button aria-label="Dismiss" onClick={() => setError('')}><X size={16}/></button></div>}
@@ -195,8 +178,9 @@ function App() {
                 <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => loadFile(event.target.files?.[0])}/>
                 {file ? <><div className="drop-icon"><FileImage size={22}/></div><strong>{file.name}</strong><span>{formatBytes(file.size)} · ready to inspect</span><small>Click to replace photo</small></> : <><div className="drop-icon"><ImagePlus size={22}/></div><strong>Drop a delivery photo here</strong><span>or <u>browse files</u></span><small>JPG, PNG, or WebP · up to 8 MB</small></>}
               </label>
-              <div className="privacy-note"><LockKeyhole size={14}/><span>Images are processed in memory and not stored.</span></div>
-              <button className="button button-primary analyze-button" onClick={analyzeUpload} disabled={busy !== null || !file || !mode?.ready || items.length === 0}>{busy === 'analyze' ? <><LoaderCircle size={16} className="spin"/> Inspecting image…</> : <><Sparkles size={16}/> Analyze with Gemini <ArrowRight size={15}/></>}</button>
+              {mode?.mode === 'firebase_ai_logic' && <><button className="text-button synthetic-image-button" type="button" onClick={prepareSyntheticLiveImage} disabled={busy !== null}><Sparkles size={14}/> Use synthetic illustration for a live AI test</button><small className="synthetic-caption">Loads the sample list and PNG. The Analyze button then makes a real Gemini request.</small></>}
+              <div className="privacy-note"><LockKeyhole size={14}/><span>{mode?.mode === 'firebase_ai_logic' ? 'Use synthetic, non-sensitive demo images. Free Gemini inputs may be used by Google to improve products.' : 'Images are processed in memory and not stored.'}</span></div>
+              <button className="button button-primary analyze-button" onClick={analyzeUpload} disabled={busy !== null || !file || !mode?.ready || items.length === 0}>{busy === 'analyze' ? <><LoaderCircle size={16} className="spin"/> Inspecting image…</> : <><Sparkles size={16}/> {error ? 'Retry with Gemini' : 'Analyze with Gemini'} <ArrowRight size={15}/></>}</button>
               {mode?.mode === 'demo_fixture' && <div className="setup-mode-note">Demo mode can load the sample case. Configure a live Gemini provider to analyze new uploads.</div>}
             </div>
           </div>}
@@ -235,7 +219,7 @@ function App() {
             </div>
           </>}
 
-          {report?.status === 'ready' && <section className="packet-card" aria-live="polite"><div className="packet-header"><div className="packet-icon"><BadgeCheck size={20}/></div><div><div className="section-kicker">EVIDENCE PACKET READY</div><h3>Review complete. Ready to share.</h3></div><span className="packet-stamp">OPERATOR APPROVED</span></div><p>Counts are confirmed and the evidence is attached. PackProof does not send claims to suppliers.</p><div className="packet-actions"><button className="button button-dark" onClick={() => downloadFile('packproof-claim.json', JSON.stringify(report.reportJson, null, 2), 'application/json')}><ArrowDownToLine size={16}/> Download JSON</button><button className="button button-outline" onClick={() => downloadFile('packproof-claim.txt', report.reportText ?? '', 'text/plain')}><FileText size={16}/> Download readable report</button></div><pre className="packet-preview">{report.reportText}</pre></section>}
+          {report?.status === 'ready' && <section className="packet-card" aria-live="polite"><div className="packet-header"><div className="packet-icon"><BadgeCheck size={20}/></div><div><div className="section-kicker">EVIDENCE PACKET READY</div><h3>Review complete. Ready to share.</h3></div><span className="packet-stamp">OPERATOR APPROVED</span></div><p>Counts are confirmed and the evidence is attached. PackProof does not send claims to suppliers.</p>{report.local && <p className="unsigned-note">This packet is assembled in your browser. It is not signed or tamper-resistant; download it to save a local copy.</p>}<div className="packet-actions"><button className="button button-dark" onClick={() => downloadFile('packproof-claim.json', JSON.stringify(report.reportJson, null, 2), 'application/json')}><ArrowDownToLine size={16}/> Download JSON</button><button className="button button-outline" onClick={() => downloadFile('packproof-claim.txt', report.reportText ?? '', 'text/plain')}><FileText size={16}/> Download readable report</button></div><pre className="packet-preview">{report.reportText}</pre></section>}
         </section>
 
         <section id="guide" className="how-section"><div><div className="section-kicker">A HUMAN-LED HANDOFF</div><h2>Less guesswork.<br/><em>Better receiving records.</em></h2></div><div className="how-steps"><div><span>01</span><b>Match the manifest</b><p>Paste a packing list or enter the expected shipment.</p></div><div><span>02</span><b>{isFixture ? 'Review the sample' : 'Capture what’s visible'}</b><p>{isFixture ? 'Fixed sample observations demonstrate the review flow.' : 'Gemini suggests visible counts, evidence, and uncertainty.'}</p></div><div><span>03</span><b>Confirm, then export</b><p>Your physical check decides the claim. The model never does.</p></div></div></section>

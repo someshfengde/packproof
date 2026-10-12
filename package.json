@@ -3,11 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": { "node": ">=24.12" },
   "scripts": {
     "dev": "concurrently -k -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "tsx watch src/server/index.ts",
     "dev:web": "vite",
     "build": "tsc --noEmit && vite build && tsc -p tsconfig.server.json",
+    "build:firebase": "node scripts/check-firebase-env.mjs && tsc --noEmit && vite build",
+    "deploy:firebase": "npm run build:firebase && npx firebase-tools deploy --only hosting",
     "start": "node dist/server/index.js",
     "test": "vitest run",
     "check": "npm run build && npm test"
@@ -15,11 +18,15 @@
   "dependencies": {
     "@google/genai": "^2.28.0",
     "express": "^5.1.0",
+    "firebase": "^13.0.0",
     "lucide-react": "^0.468.0",
     "multer": "^2.0.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zod": "^4.1.12"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.13.6"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",

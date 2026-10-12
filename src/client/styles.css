@@ -219,6 +219,9 @@ h1 em, .how-section h2 em { font-style: normal; color: var(--blue); }
 .packet-header h3 { margin: 3px 0 0; font: 700 15px var(--display); }
 .packet-stamp { margin-left: auto; border: 1px solid #a8c89c; border-radius: 3px; color: #4e7947; padding: 6px 8px; font: 9px var(--mono); letter-spacing: .7px; transform: rotate(-2deg); }
 .packet-card > p { font-size: 10px; color: #6c7a68; margin: 11px 0 12px 46px; }
+.packet-card > .unsigned-note { color: #7b4b12; background: #fff7e7; border: 1px solid #ead7ad; border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.45; }
+.synthetic-image-button { margin-top: 10px; }
+.synthetic-caption { display: block; color: var(--muted); margin: 1px 0 0 22px; font-size: 9px; line-height: 1.5; }
 .packet-actions { display: flex; gap: 8px; margin-left: 46px; }
 .packet-actions .button { min-height: 35px; font-size: 10px; }
 .packet-preview { white-space: pre-wrap; color: #65745e; background: rgba(255,255,255,.8); border: 1px solid #e6ecdf; border-radius: 5px; margin: 12px 0 0 46px; padding: 11px; font: 9px/1.6 var(--mono); max-height: 150px; overflow: auto; }
