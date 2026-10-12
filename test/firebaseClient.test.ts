@@ -73,4 +73,18 @@ describe('Firebase local approval and export', () => {
     expect(packet.reportJson?.evidenceSource).toBe('deterministic_sample_fixture');
     expect(packet.reportJson?.packetIntegrity).toContain('not signed or tamper-resistant');
   });
+
+  it('labels real-model analysis of the synthetic illustration as a simulated review', async () => {
+    const synthetic = { ...caseData, imageName: 'packproof-synthetic-receiving.png', syntheticDemoInput: true };
+    const packet = await exportCase(synthetic, items, {
+      'line-a': { quantity: '12', confirmed: true, note: '' },
+      'line-b': { quantity: '6', confirmed: true, note: '' },
+    });
+    expect(packet.reportJson?.mode).toBe('firebase_ai_logic');
+    expect(packet.reportJson?.model).toBe('gemini-3.5-flash-lite');
+    expect(packet.reportJson?.demoInput).toBe(true);
+    expect(packet.reportJson?.confirmationContext).toContain('no physical receipt check was performed');
+    expect(packet.reportJson?.decisionBasis).toContain('not a physical receiving inspection');
+    expect(packet.reportText).toContain('Demo input: yes, synthetic illustration');
+  });
 });

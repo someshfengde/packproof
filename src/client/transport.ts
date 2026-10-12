@@ -7,7 +7,7 @@ export type ModeInfo = { mode: ProviderMode; ready: boolean; model: string | nul
 export type CaseData = {
   caseId: string; createdAt: string; imageName: string; imageSha256: string; mode: ProviderMode;
   model: string | null; source: string; imageSummary: string; observations: Analysis['observations']; caseToken?: string;
-  items?: PackingItem[];
+  items?: PackingItem[]; syntheticDemoInput?: boolean;
 };
 export type Review = { quantity: string; confirmed: boolean; note: string };
 export type ExportResponse = { status: 'ready' | 'blocked'; unresolvedIds: string[]; reportJson?: Record<string, unknown>; reportText?: string; error?: string; local?: boolean };
@@ -51,13 +51,13 @@ export async function loadSyntheticLiveImage(): Promise<{ file: File; items: Pac
   return { file, items: sampleItems };
 }
 
-export async function analyzeCase(file: File, items: PackingItem[]): Promise<CaseData> {
+export async function analyzeCase(file: File, items: PackingItem[], syntheticDemoInput = false): Promise<CaseData> {
   if (isFirebaseProviderSelected()) {
     const analysis = await analyzeWithFirebase(file, items, invokeFirebaseModel);
     return {
       caseId: `PP-${crypto.randomUUID().slice(0, 8).toUpperCase()}`, createdAt: new Date().toISOString(),
       imageName: file.name.slice(0, 180), imageSha256: await sha256(await file.arrayBuffer()),
-      mode: 'firebase_ai_logic', model: FIREBASE_MODEL, source: 'firebase_ai_logic', ...analysis, items,
+      mode: 'firebase_ai_logic', model: FIREBASE_MODEL, source: 'firebase_ai_logic', ...analysis, items, syntheticDemoInput,
     };
   }
   const form = new FormData(); form.set('image', file); form.set('items', JSON.stringify(items));
@@ -92,8 +92,14 @@ export async function exportCase(caseData: CaseData, items: PackingItem[], revie
     caseId: caseData.caseId, generatedAt: caseData.createdAt, reviewedAt: new Date().toISOString(),
     evidenceSource: caseData.source, mode: caseData.mode, model: caseData.model,
     image: { filename: caseData.imageName, sha256: caseData.imageSha256 },
+    demoInput: caseData.syntheticDemoInput === true,
+    confirmationContext: caseData.syntheticDemoInput
+      ? 'Simulated review of a synthetic illustration; no physical receipt check was performed.'
+      : 'Operator physically checked received goods.',
     packetIntegrity: 'Browser-generated local report; not signed or tamper-resistant.',
-    decisionBasis: 'All compared counts were entered or confirmed by an operator. Image observations are evidence only.',
+    decisionBasis: caseData.syntheticDemoInput
+      ? 'Counts were entered or confirmed for a synthetic demo image. This is not a physical receiving inspection.'
+      : 'All compared counts were entered or confirmed by an operator. Image observations are evidence only.',
     lines: lines.map(({ item, observation, confirmedQuantity, outcome, variance }) => ({
       sku: item.sku, item: item.name, expectedQuantity: item.expectedQuantity, confirmedQuantity,
       modelSuggestedQuantity: observation?.observedQuantity ?? null, operatorNote: confirmations[item.id]?.note ?? '',
@@ -108,6 +114,7 @@ export async function exportCase(caseData: CaseData, items: PackingItem[], revie
     `PACKPROOF · RECEIVING CLAIM ${reportJson.caseId}`,
     `Evidence source: ${reportJson.evidenceSource} · ${reportJson.mode} · ${reportJson.model}`,
     `Image: ${reportJson.image.filename} · SHA-256 ${reportJson.image.sha256}`,
+    `Demo input: ${reportJson.demoInput ? 'yes, synthetic illustration' : 'no'} · ${reportJson.confirmationContext}`,
     'Packet integrity: browser-generated local report; not signed or tamper-resistant.', '', 'OPERATOR-CONFIRMED LINE REVIEW',
     ...reportJson.lines.map((line) => `${line.sku} — ${line.item}: expected ${line.expectedQuantity}, model suggested ${line.modelSuggestedQuantity ?? 'not visible'}, operator confirmed ${line.confirmedQuantity} (${line.outcome}). ${line.evidence}${line.damage ? ` Damage: ${line.damage}` : ''}${line.operatorNote ? ` Operator note: ${line.operatorNote}` : ''}`),
     '', `Short units: ${reportJson.totalShort} · Over units: ${reportJson.totalOver}`,

@@ -29,6 +29,7 @@ function App() {
   const [report, setReport] = useState<ExportResponse | null>(null);
   const [dragging, setDragging] = useState(false);
   const [showCsv, setShowCsv] = useState(false);
+  const [syntheticDemoInput, setSyntheticDemoInput] = useState(false);
 
   useEffect(() => {
     getMode().then(setMode).catch((caught) => setMode({ mode: 'demo_fixture', ready: false, model: null, location: null, error: errorMessage(caught) }));
@@ -70,7 +71,7 @@ function App() {
     try {
       const loadedCase = await loadSampleCase();
       const loadedItems: Item[] = loadedCase.items ?? items;
-      setItems(loadedItems); setCaseData(loadedCase); setFile(null); setReviews({});
+      setItems(loadedItems); setCaseData(loadedCase); setFile(null); setSyntheticDemoInput(false); setReviews({});
     } catch (caught) { setError(errorMessage(caught)); }
     finally { setBusy(null); }
   }
@@ -79,7 +80,7 @@ function App() {
     setError(''); setReport(null);
     try {
       const synthetic = await loadSyntheticLiveImage();
-      setItems(synthetic.items); setFile(synthetic.file); setCaseData(null); setReviews({});
+      setItems(synthetic.items); setFile(synthetic.file); setSyntheticDemoInput(true); setCaseData(null); setReviews({});
     } catch (caught) { setError(errorMessage(caught)); }
   }
 
@@ -88,7 +89,7 @@ function App() {
     const accepted = ['image/jpeg', 'image/png', 'image/webp'];
     if (!accepted.includes(nextFile.type)) { setError('Choose a JPG, PNG, or WebP delivery photo.'); return; }
     if (nextFile.size > 8 * 1024 * 1024) { setError('This image is over 8 MB. Choose a smaller photo.'); return; }
-    setFile(nextFile); setError(''); setCaseData(null); setReviews({}); setReport(null);
+    setFile(nextFile); setSyntheticDemoInput(false); setError(''); setCaseData(null); setReviews({}); setReport(null);
   }
 
   async function importCsv() {
@@ -112,7 +113,7 @@ function App() {
     if (new Set(items.map((item) => item.id)).size !== items.length) { setError('Packing line IDs must be unique.'); return; }
     setBusy('analyze'); setError(''); setReport(null);
     try {
-      const data = await analyzeCase(file, items);
+      const data = await analyzeCase(file, items, syntheticDemoInput);
       setCaseData(data); setReviews({});
     } catch (caught) { setError(errorMessage(caught)); }
     finally { setBusy(null); }
@@ -210,11 +211,11 @@ function App() {
                     <p className="evidence-copy">{observation?.evidence ?? 'No image observation for this line.'}</p>
                     {observation?.damage && <div className="damage-note"><TriangleAlert size={14}/><span><b>Damage to inspect:</b> {observation.damage}</span></div>}
                     {observation?.uncertainty && <p className="uncertainty-copy">{observation.uncertainty}</p>}
-                    <label className={`confirm-toggle ${review.confirmed && isWholeCount(review.quantity) ? 'is-confirmed' : ''}`}><input type="checkbox" checked={review.confirmed} disabled={!isWholeCount(review.quantity)} onChange={(event) => updateReview(item.id, 'confirmed', event.target.checked)}/><span className="custom-check"><Check size={13}/></span><span>{review.confirmed && isWholeCount(review.quantity) ? 'Count reviewed and confirmed' : 'I physically checked and confirm this count'}</span></label>
+                    <label className={`confirm-toggle ${review.confirmed && isWholeCount(review.quantity) ? 'is-confirmed' : ''}`}><input type="checkbox" checked={review.confirmed} disabled={!isWholeCount(review.quantity)} onChange={(event) => updateReview(item.id, 'confirmed', event.target.checked)}/><span className="custom-check"><Check size={13}/></span><span>{caseData.syntheticDemoInput ? review.confirmed && isWholeCount(review.quantity) ? 'Simulated count reviewed for this synthetic demo' : 'I reviewed the depicted count for this synthetic demo' : review.confirmed && isWholeCount(review.quantity) ? 'Count reviewed and confirmed' : 'I physically checked and confirm this count'}</span></label>
                     {review.confirmed && <label className="operator-note"><span>REVIEW NOTE <small>(optional)</small></span><input value={review.note} placeholder="e.g. 4 pieces missing from open carton" onChange={(event) => updateReview(item.id, 'note', event.target.value)}/></label>}
                   </article>;
                 })}</div>
-                <div className="approval-footer"><div><div className="approval-state"><span className={`approval-dot ${allReviewed ? 'is-ready' : ''}`}/><strong>{allReviewed ? 'Ready to approve' : 'Review required'}</strong></div><p>{allReviewed ? 'Every line has an operator-confirmed count.' : `Confirm each line to unlock the evidence packet. ${items.length - readyCount} remaining.`}</p></div><button className="button button-primary approval-button" onClick={exportPacket} disabled={!allReviewed || busy !== null}>{busy === 'export' ? <><LoaderCircle size={16} className="spin"/>Preparing…</> : <><ClipboardCheck size={16}/>Approve & create packet<ArrowRight size={15}/></>}</button></div>
+                <div className="approval-footer"><div><div className="approval-state"><span className={`approval-dot ${allReviewed ? 'is-ready' : ''}`}/><strong>{allReviewed ? 'Ready to approve' : 'Review required'}</strong></div><p>{allReviewed ? caseData.syntheticDemoInput ? 'Every line has a simulated review confirmation.' : 'Every line has an operator-confirmed count.' : `Confirm each line to unlock the evidence packet. ${items.length - readyCount} remaining.`}</p></div><button className="button button-primary approval-button" onClick={exportPacket} disabled={!allReviewed || busy !== null}>{busy === 'export' ? <><LoaderCircle size={16} className="spin"/>Preparing…</> : <><ClipboardCheck size={16}/>{caseData.syntheticDemoInput ? 'Approve demo review & create packet' : 'Approve & create packet'}<ArrowRight size={15}/></>}</button></div>
               </div>
             </div>
           </>}
@@ -222,7 +223,7 @@ function App() {
           {report?.status === 'ready' && <section className="packet-card" aria-live="polite"><div className="packet-header"><div className="packet-icon"><BadgeCheck size={20}/></div><div><div className="section-kicker">EVIDENCE PACKET READY</div><h3>Review complete. Ready to share.</h3></div><span className="packet-stamp">OPERATOR APPROVED</span></div><p>Counts are confirmed and the evidence is attached. PackProof does not send claims to suppliers.</p>{report.local && <p className="unsigned-note">This packet is assembled in your browser. It is not signed or tamper-resistant; download it to save a local copy.</p>}<div className="packet-actions"><button className="button button-dark" onClick={() => downloadFile('packproof-claim.json', JSON.stringify(report.reportJson, null, 2), 'application/json')}><ArrowDownToLine size={16}/> Download JSON</button><button className="button button-outline" onClick={() => downloadFile('packproof-claim.txt', report.reportText ?? '', 'text/plain')}><FileText size={16}/> Download readable report</button></div><pre className="packet-preview">{report.reportText}</pre></section>}
         </section>
 
-        <section id="guide" className="how-section"><div><div className="section-kicker">A HUMAN-LED HANDOFF</div><h2>Less guesswork.<br/><em>Better receiving records.</em></h2></div><div className="how-steps"><div><span>01</span><b>Match the manifest</b><p>Paste a packing list or enter the expected shipment.</p></div><div><span>02</span><b>{isFixture ? 'Review the sample' : 'Capture what’s visible'}</b><p>{isFixture ? 'Fixed sample observations demonstrate the review flow.' : 'Gemini suggests visible counts, evidence, and uncertainty.'}</p></div><div><span>03</span><b>Confirm, then export</b><p>Your physical check decides the claim. The model never does.</p></div></div></section>
+        <section id="guide" className="how-section"><div><div className="section-kicker">A HUMAN-LED HANDOFF</div><h2>Less guesswork.<br/><em>Better receiving records.</em></h2></div><div className="how-steps"><div><span>01</span><b>Match the manifest</b><p>Paste a packing list or enter the expected shipment.</p></div><div><span>02</span><b>{isFixture ? 'Review the sample' : 'Capture what’s visible'}</b><p>{isFixture ? 'Fixed sample observations demonstrate the review flow.' : 'Gemini suggests visible counts, evidence, and uncertainty.'}</p></div><div><span>03</span><b>{caseData?.syntheticDemoInput ? 'Review the synthetic demo' : 'Confirm, then export'}</b><p>{caseData?.syntheticDemoInput ? 'This simulated review is not a physical receiving inspection.' : 'Your physical check decides the claim. The model never does.'}</p></div></div></section>
         <footer className="footer"><a className="brand footer-brand" href="#top"><span className="brand-mark"><PackageCheck size={17}/></span><span>packproof</span></a><span>Built for receiving teams · Every claim begins with evidence.</span><span className="footer-team">TEAM CODE RUSH</span></footer>
       </main>
     </div>
