@@ -2,6 +2,10 @@
 
 PackProof is a receiving-desk prototype for small retail teams. It organizes a supplier packing list and delivery photo into a reviewable evidence packet. In live mode, Gemini on Vertex AI suggests what can be seen in the image; an operator checks the physical delivery, confirms every count, and chooses whether to export the report.
 
+## Demo
+
+[Watch the 66-second narrated demo on Google Drive](https://drive.google.com/file/d/1KPzIAlUIXnhyLrj-VjaEXBBAB4d1Fi5Q/view?usp=sharing) ([GitHub release download backup](https://github.com/someshfengde/packproof/releases/download/v0.1.0/PackProof-demo.mp4)). It walks through the fixed synthetic sample and explicitly does not call Gemini. Live Vertex AI mode requires project configuration and has not yet been exercised.
+
 ## Run locally
 
 Requires Node.js 22.12 or newer.
