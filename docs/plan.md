@@ -47,7 +47,7 @@
 1. Identify the current fixture or Firebase AI Logic mode.
 2. Distinguish the fixed fixture from the live synthetic-PNG test action.
 3. For live mode, make and identify a real Firebase AI Logic Gemini request; preserve the model's actual counts and uncertainty.
-4. Physically confirm each line and show the approval gate.
+4. In the synthetic demo, confirm only that the depicted count is being simulated; the UI and packet must say no physical receipt check occurred. In a real workflow, a receiver must physically confirm each line.
 5. Export and identify JSON/text provenance. In Firebase mode, say the report is created locally and unsigned.
 
 ## Official references

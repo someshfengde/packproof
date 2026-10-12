@@ -4,9 +4,11 @@ PackProof is a receiving-desk prototype for retail teams. It compares a packing 
 
 ## Google AI path
 
+**Live app:** [packproof-code-rush-2026.web.app](https://packproof-code-rush-2026.web.app/). It is hosted on Firebase Spark and uses Firebase AI Logic with Gemini Developer API and reCAPTCHA Enterprise App Check; no billing account is linked.
+
 The no-billing hosted build uses Firebase Hosting on the Spark plan and Firebase AI Logic with the Gemini Developer API. The browser SDK sends image-and-packing-list requests through Firebase's AI Logic proxy to `gemini-3.5-flash-lite`; Firebase App Check uses a reCAPTCHA Enterprise site key. There is no Gemini API key in the browser, repository, or hosting build. Firebase web config and the reCAPTCHA site key are public client values.
 
-The [66-second narrated walkthrough](https://drive.google.com/file/d/1KPzIAlUIXnhyLrj-VjaEXBBAB4d1Fi5Q/view?usp=sharing) demonstrates the deterministic fixture workflow; it does not claim a live Gemini response. The [submission PDF](https://github.com/someshfengde/packproof/releases/download/v0.1.0/PackProof-AI-Builder-Cup.pdf) and [editable deck](https://github.com/someshfengde/packproof/releases/download/v0.1.0/PackProof-AI-Builder-Cup.pptx) are available with the public release.
+The [narrated live-response walkthrough](https://drive.google.com/file/d/1KPzIAlUIXnhyLrj-VjaEXBBAB4d1Fi5Q/view?usp=sharing) shows a genuine Gemini response to generated imagery. Its review is clearly labeled as a simulation, not a physical stock check. [Download the same clip from the GitHub release](https://github.com/someshfengde/packproof/releases/download/v0.1.0/PackProof-live-Gemini-demo.mp4). The [submission PDF](https://github.com/someshfengde/packproof/releases/download/v0.1.0/PackProof-AI-Builder-Cup.pdf) and [editable deck](https://github.com/someshfengde/packproof/releases/download/v0.1.0/PackProof-AI-Builder-Cup.pptx) are available with the public release.
 
 Free Gemini inputs may be used by Google to improve products. Use only synthetic or otherwise non-sensitive demo photos. PackProof does not save uploaded photos or case data to its own backend. In this static path, the JSON/text report is built in the browser and is not signed or tamper-resistant; it remains in the current browser session unless downloaded. It is not sent to a supplier.
 

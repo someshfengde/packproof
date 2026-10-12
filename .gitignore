@@ -9,6 +9,7 @@ coverage
 .deck-build/
 *.tsbuildinfo
 .gcloud/
+.firebase/
 application_default_credentials.json
 credentials*.json
 service-account*.json
